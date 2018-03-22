@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Book;
 use Illuminate\Http\Request;
+use Mockery\Exception;
 
 class ProductController extends Controller
 {
@@ -19,16 +20,6 @@ class ProductController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
      * Store a newly created resource in storage.
      *
      * @param  \Illuminate\Http\Request  $request
@@ -37,8 +28,19 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $book = new Book();
-        $book->fill($request->all());
-        $book->save();
+        $data = $request->all();
+        $book->fill($data);
+        if(!$book->validate($data)){
+            return response()->json($book->errors(),422);
+        }
+
+        try{
+            $book->save();
+        }catch (Exception $ex){
+            return response()->json($ex->getMessage(),500);
+        }
+
+        return response()->json($book,200);
     }
 
     /**
@@ -50,18 +52,10 @@ class ProductController extends Controller
     public function show($id)
     {
         $book = Book::with('category:category_id,category_name')->find($id);
-        return $book;
-    }
+        if(!$book)
+            return response()->json("Data not found",404);
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function edit($id)
-    {
-        //
+        return response()->json($book,200);
     }
 
     /**
@@ -74,8 +68,20 @@ class ProductController extends Controller
     public function update(Request $request, $id)
     {
         $book = Book::find($id);
+        if(!$book)
+            return response()->json("Data not found",404);
+
         $book->fill($request->all());
-        $book->save();
+        if(!$book->validate($request->all())){
+            return response()->json($book->errors(),422);
+        }
+
+        try{
+            $book->save();
+        }catch (Exception $ex){
+            return response()->json($ex->getMessage(),500);
+        }
+        return response()->json($book,200);
     }
 
     /**
@@ -87,6 +93,14 @@ class ProductController extends Controller
     public function destroy($id)
     {
         $book = Book::find($id);
-        $book->delete();
+        if(!$book)
+            return response()->json("Data not found",404);
+        try{
+            $book->delete();
+        }catch (Exception $ex){
+            return response()->json($ex->getMessage(),500);
+        }
+        return response()->json("Delete success",200);
+
     }
 }
