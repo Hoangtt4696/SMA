@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Book;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Mockery\Exception;
 
@@ -11,12 +11,39 @@ class ProductController extends Controller
     /**
      * Display a listing of the resource.
      *
+     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        $products = Book::with('category:category_id,category_name')->get();
-        return $products;
+        $searchTerms = (object)[];
+
+        $searchTerms->fields = $request->query('fields')? explode(',',$request->query('fields')) : null ;
+
+        $searchTerms->ids = $request->query('ids');
+        $searchTerms->name = $request->query('name');
+        $searchTerms->authors = $request->query('authors');
+
+        try {
+            $product = Product::query()
+                ->when($searchTerms->fields, function ($query) use ($searchTerms) {
+                    return $query->select($searchTerms->fields);
+                })
+                ->when($searchTerms->ids, function ($query) use ($searchTerms) {
+                    return $query->whereIn('id', [$searchTerms->ids]);
+                })
+                ->when($searchTerms->name, function ($query) use ($searchTerms) {
+                    return $query->where('name', $searchTerms->name);
+                })
+                ->when($searchTerms->authors, function ($query) use ($searchTerms) {
+                    return $query->whereIn('author', [$searchTerms->authors]);
+                })
+                ->get();
+            return response()->json($product, 200);
+        } catch (\Exception $e) {
+            return response()->json($e->getMessage());
+    }
+
     }
 
     /**
@@ -27,7 +54,7 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
-        $book = new Book();
+        $book = new Product();
         $data = $request->all();
         $book->fill($data);
         if(!$book->validate($data)){
@@ -51,9 +78,9 @@ class ProductController extends Controller
      */
     public function show($id)
     {
-        $book = Book::with('category:category_id,category_name')->find($id);
+        $book = Product::with('productType:id')->find($id);
         if(!$book)
-            return response()->json("Data not found",404);
+            return response()->json("Product not found",404);
 
         return response()->json($book,200);
     }
@@ -67,7 +94,7 @@ class ProductController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $book = Book::find($id);
+        $book = Product::find($id);
         if(!$book)
             return response()->json("Data not found",404);
 
@@ -92,7 +119,7 @@ class ProductController extends Controller
      */
     public function destroy($id)
     {
-        $book = Book::find($id);
+        $book = Product::find($id);
         if(!$book)
             return response()->json("Data not found",404);
         try{
